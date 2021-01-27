@@ -46,6 +46,7 @@ def decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index, decrypt_k
     
     #base case
     if decryption_index == len(encrypted):
+        showAnswers([decrypt_key])
         return [decrypt_key]
     else:
         encrypted_word = encrypted[decryption_index]
@@ -109,24 +110,25 @@ def decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index, decrypt_k
 
         return solutions
 
-def showAnswers(solutions, full_encryption):
-    if DEBUG > 0:
-        print('solutions: ' + str(solutions))
-    if solutions == []:
-        print('No solutions found')
-    else:
-        for solution in solutions:
-            decrypted = ''
-            while True:
-                char = full_encryption.read(1)
-                if not char:  
-                    break
-                else:
-                    if char in solution:
-                        decrypted += solution[char]
+def showAnswers(solutions):
+    with open('encrypted.txt') as full_encryption:
+        if DEBUG > 0:
+            print('solutions: ' + str(solutions))
+        if solutions == []:
+            print('No solutions found')
+        else:
+            for solution in solutions:
+                decrypted = ''
+                while True:
+                    char = full_encryption.read(1)
+                    if not char:  
+                        break
                     else:
-                        decrypted += char
-            print('SOLUTION:\n' + decrypted + '\n')
+                        if char in solution:
+                            decrypted += solution[char]
+                        else:
+                            decrypted += char
+                print('SOLUTION:\n' + decrypted + '\n')
         
 with open('words_dictionary.json') as f:
     words = json.load(f)
@@ -138,7 +140,6 @@ wordsByLength, wordsByLetter = setup(words)
 with open('encrypted.txt') as text:
     print('parsed:\n' + str(parse(text)))
 
-with open('encrypted.txt') as text:
     solutions = decrypt(wordsByLength, wordsByLetter, parse(text), 0, {}, {})
 
 with open('encrypted.txt') as text:
