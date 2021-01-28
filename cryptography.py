@@ -1,5 +1,6 @@
 import json
 import sys
+import wordfreq
 
 DEBUG = 0
 
@@ -14,8 +15,21 @@ def setup(full_words):
     wordsByLength = {}
     wordsByLetter = {}
     words = list(full_words.keys())
-    words.sort()
+    words_with_frequency = []
     for word in words:
+        words_with_frequency.append((word, wordfreq.word_frequency(word, 'en')))
+
+    words_with_frequency.sort(key=lambda x: -x[1])
+
+    first_50 = words_with_frequency[0: 50]
+    if DEBUG > 0:
+        for tuple_pair in first_50:
+            print(tuple_pair[0])
+
+    sorted_words = [x[0] for x in words_with_frequency if x[1] > 0]
+    print(f'length of words with old dictionary: {len(full_words)}, length of words removed zeroes: {len(sorted_words)}')
+    
+    for word in sorted_words:
         length = len(word)
         if length in wordsByLength:
             wordsByLength[length].append(word)
@@ -111,7 +125,7 @@ def decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index, decrypt_k
         solutions = []
         #recurse for each of the possible words
         for word, decrypt_key_copy, encrypt_key_copy in filtered_possible:
-            if True or DEBUG > 0:
+            if DEBUG > 0:
                 print(f'{indent}recursing on word {word}')
             decryption = decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index + 1, decrypt_key_copy, encrypt_key_copy)
             solutions.extend(decryption)
@@ -148,7 +162,7 @@ wordsByLength, wordsByLetter = setup(words)
 with open(INPUT_FILE) as text:
     print('parsed:\n' + str(parse(text)))
 
+with open('encrypted.txt') as text:
     solutions = decrypt(wordsByLength, wordsByLetter, parse(text), 0, {}, {})
-
-with open(INPUT_FILE) as text:
-    showAnswers(solutions, text)
+    
+showAnswers(solutions)
