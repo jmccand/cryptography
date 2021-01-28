@@ -1,6 +1,14 @@
 import json
+import sys
 
 DEBUG = 0
+
+if len(sys.argv) > 1:
+    INPUT_FILE = sys.argv[1]
+else:
+    INPUT_FILE = 'encrypted.txt'
+
+print(f'Trying to decrypt file "{INPUT_FILE}"')
 
 def setup(full_words):
     wordsByLength = {}
@@ -43,7 +51,7 @@ def decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index, decrypt_k
     if DEBUG > 0:
         print(f'{indent}index {decryption_index} recursed again')
         print(f'{indent}encrypt key: {encrypt_key}\n{indent}decrypt key: {decrypt_key}')
-    
+
     #base case
     if decryption_index == len(encrypted):
         showAnswers([decrypt_key])
@@ -111,7 +119,7 @@ def decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index, decrypt_k
         return solutions
 
 def showAnswers(solutions):
-    with open('encrypted.txt') as full_encryption:
+    with open(INPUT_FILE) as full_encryption:
         if DEBUG > 0:
             print('solutions: ' + str(solutions))
         if solutions == []:
@@ -137,10 +145,10 @@ wordsByLength, wordsByLetter = setup(words)
 #print('words by length:\n' + str(wordsByLength))
 #print('\nwords by letter:\n' + str(wordsByLetter))
 
-with open('encrypted.txt') as text:
+with open(INPUT_FILE) as text:
     print('parsed:\n' + str(parse(text)))
 
     solutions = decrypt(wordsByLength, wordsByLetter, parse(text), 0, {}, {})
 
-with open('encrypted.txt') as text:
+with open(INPUT_FILE) as text:
     showAnswers(solutions, text)
