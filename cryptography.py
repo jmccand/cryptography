@@ -1,6 +1,18 @@
 import json
 import sys
 import wordfreq
+import time
+
+# TODO
+#   - run on dad's fastest computer!
+#   - allow inputting a "starting guess" from the user, e.g. "python is the last word"
+#   - use inverted letter index to more quickly filter words
+#   - use multiprocess
+#   - print partial decode so far during DEBUG > 0
+#   - maybe print sum of word freq for each solution?  might help us spot most likely solution?  we could print all solutions ranked by that in the "end"
+#   - could we print some kind of overall %tg done somehow?  e.g. for each solution we could print what %tg through the word list each word was?
+#   - maybe trim very low frequency words, not just 0 frequency?
+#   - take "typical" letter frequencies into account, law of large numbers?
 
 DEBUG = 0
 
@@ -10,6 +22,9 @@ else:
     INPUT_FILE = 'encrypted.txt'
 
 print(f'Trying to decrypt file "{INPUT_FILE}"')
+
+#how many solutions we've found so far
+solutionCount = 0
 
 def setup(full_words):
     wordsByLength = {}
@@ -59,6 +74,8 @@ def parse(text):
     return words
     
 def decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index, decrypt_key, encrypt_key, decryptionType=False):
+
+    global solutionCount
     
     indent = '  ' * decryption_index
     
@@ -68,6 +85,7 @@ def decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index, decrypt_k
 
     #base case
     if decryption_index == len(encrypted):
+        solutionCount += 1
         showAnswers([decrypt_key])
         return [decrypt_key]
     else:
@@ -85,51 +103,50 @@ def decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index, decrypt_k
         #filtering possible words based on requirements
         filtered_possible = []
 
+        solutions = []
         for word in possible_words:
             if DEBUG > 1:
                 print(f'{indent}considering word {word} for encrypted word {encrypted_word}')
-            requirementIndex = 0
-            while requirementIndex < len(requirements):
-                requirement = requirements[requirementIndex]
-                if word[requirement[0]] != requirement[1]:
+            for index, letter in requirements:
+                if word[index] != letter:
                     if DEBUG > 1:
                         print(f'{indent}  rejected')
                     break
-                else:
-                    requirementIndex += 1
             else:
-                decrypt_key_copy = decrypt_key.copy()
-                encrypt_key_copy = encrypt_key.copy()
+                added = []
                 for charIndex, encrypted_char in enumerate(encrypted_word):
                     decrypted_char = word[charIndex]
-                    if encrypted_char in decrypt_key_copy and decrypt_key_copy[encrypted_char] != decrypted_char:
-                        if DEBUG > 1:
-                            print(f'{indent}skipping word {word} because {encrypted_char} was already mapped to {decrypt_key_copy[encrypted_char]}')
-                        break
-                    
-                    elif decrypted_char in encrypt_key_copy and encrypt_key_copy[decrypted_char] != encrypted_char:
-                        if DEBUG > 1:
-                            print(f'{indent}skipping word {word} because {decrypted_char} was already mapped to {encrypt_key_copy[decrypted_char]}')
-                        break
+                    if encrypted_char in decrypt_key:
+                        if decrypt_key[encrypted_char] != decrypted_char:
+                            if DEBUG > 1:
+                                print(f'{indent}skipping word {word} because {encrypted_char} was already mapped to {decrypt_key[encrypted_char]}')
+                            break
+                    elif decrypted_char in encrypt_key:
+                        if encrypt_key[decrypted_char] != encrypted_char:
+                            if DEBUG > 1:
+                                print(f'{indent}skipping word {word} because {decrypted_char} was already mapped to {encrypt_key[decrypted_char]}')
+                            break
                     else:
-                        decrypt_key_copy[encrypted_char] = decrypted_char
-                        encrypt_key_copy[decrypted_char] = encrypted_char
-                else:
-                    filtered_possible.append((word, decrypt_key_copy, encrypt_key_copy))
-                    if DEBUG > 0:
-                        print(f'{indent}keep word {word} for encrypted word {encrypted_word}')
-                        
-        if DEBUG > 0:
-            print(f'{indent}length of possible words that survived filtering: {len(filtered_possible)}')
-            
-        solutions = []
-        #recurse for each of the possible words
-        for word, decrypt_key_copy, encrypt_key_copy in filtered_possible:
-            if DEBUG > 0:
-                print(f'{indent}{decryption_index}: recursing on word {word}')
-            decryption = decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index + 1, decrypt_key_copy, encrypt_key_copy)
-            solutions.extend(decryption)
+                        assert encrypted_char not in decrypt_key, f'encrypted_char {encrypted_char} already in decrypt_key {decrypt_key}'
+                        decrypt_key[encrypted_char] = decrypted_char
 
+                        assert decrypted_char not in encrypt_key, f'decrypted_char {decrypted_char} already in encrypt_key {encrypt_key}'
+                        encrypt_key[decrypted_char] = encrypted_char
+                        added.append(encrypted_char)
+                else:
+                    filtered_possible.append((word, decrypt_key, encrypt_key))
+                    if DEBUG > 0:
+                        print(f'{indent}{decryption_index}: recursing on word {word}')
+                    #recurse on possible word:
+                    newSolutions = decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index + 1, decrypt_key, encrypt_key)
+                    solutions.extend(newSolutions)
+
+                #clean up added mappings:
+                for encrypted_char in added:
+                    decrypted_char = decrypt_key[encrypted_char]
+                    del decrypt_key[encrypted_char]
+                    del encrypt_key[decrypted_char]
+                    
         return solutions
 
 def showAnswers(solutions):
@@ -150,7 +167,7 @@ def showAnswers(solutions):
                             decrypted += solution[char]
                         else:
                             decrypted += char
-                print('SOLUTION:\n' + decrypted + '\n')
+                print(f'{time.time() - startTime:.2f}s: SOLUTION {solutionCount}: {decrypted.strip()}')
         
 with open('words_dictionary.json') as f:
     words = json.load(f)
@@ -158,6 +175,8 @@ with open('words_dictionary.json') as f:
 wordsByLength, wordsByLetter = setup(words)
 #print('words by length:\n' + str(wordsByLength))
 #print('\nwords by letter:\n' + str(wordsByLetter))
+
+startTime = time.time()
 
 with open(INPUT_FILE) as text:
     parsed_list = parse(text)
