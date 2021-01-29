@@ -46,7 +46,7 @@ def parse(text):
     word = ''
     words = []
     while True:
-        char = text.read(1)           
+        char = text.read(1)
         if not char:  
             break
         else:
@@ -102,17 +102,17 @@ def decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index, decrypt_k
                 encrypt_key_copy = encrypt_key.copy()
                 for charIndex, encrypted_char in enumerate(encrypted_word):
                     decrypted_char = word[charIndex]
-                    if encrypted_char in decrypt_key_copy:
-                        assert decrypt_key_copy[encrypted_char] == decrypted_char
-                    elif decrypted_char in encrypt_key_copy and encrypted_char not in decrypt_key_copy:
+                    if encrypted_char in decrypt_key_copy and decrypt_key_copy[encrypted_char] != decrypted_char:
+                        if DEBUG > 1:
+                            print(f'{indent}skipping word {word} because {encrypted_char} was already mapped to {decrypt_key_copy[encrypted_char]}')
+                        break
+                    
+                    elif decrypted_char in encrypt_key_copy and encrypt_key_copy[decrypted_char] != encrypted_char:
                         if DEBUG > 1:
                             print(f'{indent}skipping word {word} because {decrypted_char} was already mapped to {encrypt_key_copy[decrypted_char]}')
                         break
                     else:
-                        assert encrypted_char not in decrypt_key_copy
                         decrypt_key_copy[encrypted_char] = decrypted_char
-
-                        assert decrypted_char not in encrypt_key_copy
                         encrypt_key_copy[decrypted_char] = encrypted_char
                 else:
                     filtered_possible.append((word, decrypt_key_copy, encrypt_key_copy))
@@ -126,7 +126,7 @@ def decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index, decrypt_k
         #recurse for each of the possible words
         for word, decrypt_key_copy, encrypt_key_copy in filtered_possible:
             if DEBUG > 0:
-                print(f'{indent}recursing on word {word}')
+                print(f'{indent}{decryption_index}: recursing on word {word}')
             decryption = decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index + 1, decrypt_key_copy, encrypt_key_copy)
             solutions.extend(decryption)
 
@@ -160,9 +160,8 @@ wordsByLength, wordsByLetter = setup(words)
 #print('\nwords by letter:\n' + str(wordsByLetter))
 
 with open(INPUT_FILE) as text:
-    print('parsed:\n' + str(parse(text)))
-
-with open('encrypted.txt') as text:
-    solutions = decrypt(wordsByLength, wordsByLetter, parse(text), 0, {}, {})
+    parsed_list = parse(text)
+    print('parsed:\n' + str(parsed_list))
+    solutions = decrypt(wordsByLength, wordsByLetter, parsed_list, 0, {}, {})
     
 showAnswers(solutions)
