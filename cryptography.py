@@ -13,6 +13,8 @@ import time
 #   - could we print some kind of overall %tg done somehow?  e.g. for each solution we could print what %tg through the word list each word was?
 #   - maybe trim very low frequency words, not just 0 frequency?
 #   - take "typical" letter frequencies into account, law of large numbers?
+#   - print out letter frequencies in the encoded text
+#   - don't decode left to right, go from longest words to shortest
 
 DEBUG = 0
 
@@ -41,7 +43,8 @@ def setup(full_words):
         for tuple_pair in first_50:
             print(tuple_pair[0])
 
-    sorted_words = [x[0] for x in words_with_frequency if x[1] > 0]
+    sorted_words = [x[0] for x in words_with_frequency]
+#    sorted_words = [x[0] for x in words_with_frequency if x[1] > 0]
     print(f'length of words with old dictionary: {len(full_words)}, length of words removed zeroes: {len(sorted_words)}')
     
     for word in sorted_words:
@@ -86,8 +89,7 @@ def decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index, decrypt_k
     #base case
     if decryption_index == len(encrypted):
         solutionCount += 1
-        showAnswers([decrypt_key])
-        return [decrypt_key]
+        showAnswer(decrypt_key)
     else:
         encrypted_word = encrypted[decryption_index]
         possible_words = wordsByLength[len(encrypted_word)]
@@ -100,10 +102,7 @@ def decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index, decrypt_k
 
         if DEBUG > 0:
             print(f'{indent}requirements: {requirements}')
-        #filtering possible words based on requirements
-        filtered_possible = []
 
-        solutions = []
         for word in possible_words:
             if DEBUG > 1:
                 print(f'{indent}considering word {word} for encrypted word {encrypted_word}')
@@ -134,12 +133,10 @@ def decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index, decrypt_k
                         encrypt_key[decrypted_char] = encrypted_char
                         added.append(encrypted_char)
                 else:
-                    filtered_possible.append((word, decrypt_key, encrypt_key))
                     if DEBUG > 0:
                         print(f'{indent}{decryption_index}: recursing on word {word}')
                     #recurse on possible word:
-                    newSolutions = decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index + 1, decrypt_key, encrypt_key)
-                    solutions.extend(newSolutions)
+                    decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index + 1, decrypt_key, encrypt_key)
 
                 #clean up added mappings:
                 for encrypted_char in added:
@@ -147,27 +144,21 @@ def decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index, decrypt_k
                     del decrypt_key[encrypted_char]
                     del encrypt_key[decrypted_char]
                     
-        return solutions
-
-def showAnswers(solutions):
+def showAnswer(solution):
     with open(INPUT_FILE) as full_encryption:
         if DEBUG > 0:
-            print('solutions: ' + str(solutions))
-        if solutions == []:
-            print('No solutions found')
-        else:
-            for solution in solutions:
-                decrypted = ''
-                while True:
-                    char = full_encryption.read(1)
-                    if not char:  
-                        break
-                    else:
-                        if char in solution:
-                            decrypted += solution[char]
-                        else:
-                            decrypted += char
-                print(f'{time.time() - startTime:.2f}s: SOLUTION {solutionCount}: {decrypted.strip()}')
+            print('solutions: ' + str(solution))
+        decrypted = ''
+        while True:
+            char = full_encryption.read(1)
+            if not char:
+                break
+            else:
+                if char in solution:
+                    decrypted += solution[char]
+                else:
+                    decrypted += char
+        print(f'{time.time() - startTime:.2f}s: SOLUTION {solutionCount}: {decrypted.strip()}')
         
 with open('words_dictionary.json') as f:
     words = json.load(f)
@@ -180,7 +171,19 @@ startTime = time.time()
 
 with open(INPUT_FILE) as text:
     parsed_list = parse(text)
+    start_decrypt_key = {}
+    start_encrypt_key = {}
+    if len(sys.argv) > 3:
+        INDEX, WORD = sys.argv[2:4]
+        INDEX = int(INDEX)
+        known_encrypted_word = parsed_list[INDEX]
+        for index, char in enumerate(WORD):
+            start_decrypt_key[known_encrypted_word[index]] = char
+            start_encrypt_key[char] = known_encrypted_word[index]
+    print(f'start decrypt: {start_decrypt_key}, start encrypt: {start_encrypt_key}')
+
+    parsed_list.sort(key=lambda x: -len(x))
     print('parsed:\n' + str(parsed_list))
-    solutions = decrypt(wordsByLength, wordsByLetter, parsed_list, 0, {}, {})
-    
-showAnswers(solutions)
+    del parsed_list[-30]
+
+    decrypt(wordsByLength, wordsByLetter, parsed_list, 0, start_decrypt_key, start_encrypt_key)
