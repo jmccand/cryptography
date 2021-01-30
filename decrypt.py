@@ -2,6 +2,7 @@ import json
 import sys
 import wordfreq
 import time
+import string
 
 # TODO
 #   - run on dad's fastest computer!
@@ -18,6 +19,10 @@ import time
 
 DEBUG = 0
 
+CAESAR_MODE = '-caesar' in sys.argv
+if CAESAR_MODE:
+    sys.argv.remove('-caesar')
+        
 if len(sys.argv) > 1:
     INPUT_FILE = sys.argv[1]
 else:
@@ -74,7 +79,7 @@ def parse(text):
                 if word != '':
                     words.append(word)
                 word = ''
-    return words[:78] + words[79:85]
+    return words
     
 def decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index, decrypt_key, encrypt_key, decryptionType=False):
 
@@ -143,6 +148,20 @@ def decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index, decrypt_k
                     decrypted_char = decrypt_key[encrypted_char]
                     del decrypt_key[encrypted_char]
                     del encrypt_key[decrypted_char]
+
+def decrypt_caesar(wordsByLength, wordsByLetter, parsed_list, start_decrypt_key, start_encrypt_key):
+    for shift in range(26):
+        temp_decrypt_key, temp_encrypt_key = build_caesar(shift)
+        decrypt(wordsByLength, wordsByLetter, parsed_list, 0, temp_decrypt_key, temp_encrypt_key)
+        
+def build_caesar(shift):
+    decrypt_key = {}
+    encrypt_key = {}
+    for index, char in enumerate(string.ascii_lowercase):
+        shifted_char = string.ascii_lowercase[(index + shift) % 26]
+        decrypt_key[char] = shifted_char
+        encrypt_key[shifted_char] = char
+    return decrypt_key, encrypt_key
                     
 def showAnswer(solution):
     with open(INPUT_FILE) as full_encryption:
@@ -183,6 +202,10 @@ with open(INPUT_FILE) as text:
     print(f'start decrypt: {start_decrypt_key}, start encrypt: {start_encrypt_key}')
 
     parsed_list.sort(key=lambda x: -len(x))
-    print(f'parsed: {len(parsed_list)} words\n{parsed_list}')
 
-    decrypt(wordsByLength, wordsByLetter, parsed_list, 0, start_decrypt_key, start_encrypt_key)
+    print(f'parsed: {len(parsed_list)} words\n{parsed_list}')
+    if CAESAR_MODE:
+        print('CAESAR MODE')
+        decrypt_caesar(wordsByLength, wordsByLetter, parsed_list, start_decrypt_key, start_encrypt_key)
+    else:
+        decrypt(wordsByLength, wordsByLetter, parsed_list, 0, start_decrypt_key, start_encrypt_key)
