@@ -74,7 +74,7 @@ def parse(text):
                 if word != '':
                     words.append(word)
                 word = ''
-    return words
+    return words[:78] + words[79:85]
     
 def decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index, decrypt_key, encrypt_key, decryptionType=False):
 
@@ -183,7 +183,6 @@ with open(INPUT_FILE) as text:
     print(f'start decrypt: {start_decrypt_key}, start encrypt: {start_encrypt_key}')
 
     parsed_list.sort(key=lambda x: -len(x))
-    print('parsed:\n' + str(parsed_list))
-    del parsed_list[-30]
+    print(f'parsed: {len(parsed_list)} words\n{parsed_list}')
 
     decrypt(wordsByLength, wordsByLetter, parsed_list, 0, start_decrypt_key, start_encrypt_key)
