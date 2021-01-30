@@ -1,3 +1,4 @@
+import sys
 import random
 import string
 import json
@@ -22,7 +23,7 @@ def main():
     json.dump(decrypt_key, open('decrypt_key.json', 'w'))
     json.dump(encrypt_key, open('encrypt_key.json', 'w'))
 
-    with open('input.txt', 'r') as f_in, open('output.txt', 'w') as f_out:
+    with open(sys.argv[1], 'r') as f_in, open('output.txt', 'w') as f_out:
         text = f_in.read()
         encrypted_text_list = []
         for letter in text:
