@@ -16,22 +16,9 @@ import string
 #   - take "typical" letter frequencies into account, law of large numbers?
 #   - print out letter frequencies in the encoded text
 #   - don't decode left to right, go from longest words to shortest
+#   - optimize function can be recursive
 
 DEBUG = 0
-
-CAESAR_MODE = '-caesar' in sys.argv
-if CAESAR_MODE:
-    sys.argv.remove('-caesar')
-        
-if len(sys.argv) > 1:
-    INPUT_FILE = sys.argv[1]
-else:
-    INPUT_FILE = 'encrypted.txt'
-
-print(f'Trying to decrypt file "{INPUT_FILE}"')
-
-#how many solutions we've found so far
-solutionCount = 0
 
 def setup(full_words):
     wordsByLength = {}
@@ -68,20 +55,40 @@ def setup(full_words):
 def parse(text):
     word = ''
     words = []
+    for char in text:
+        if char.isalpha():
+            word += char
+        else:
+            if word != '':
+                words.append(word)
+            word = ''
+    return words
+
+def optimize(word_list):
+    seen = set()
+    word_priority = []
     while True:
-        char = text.read(1)
-        if not char:  
+        if DEBUG > 1:
+            print(f'word priority: {word_priority}')
+            print(f'seen: {seen}')
+        word_scores = []
+        for word in word_list:
+            distinct_letters = set()
+            for char in word:
+                if char not in seen:
+                    distinct_letters.add(char)
+            word_scores.append((word, len(distinct_letters)))
+        word_scores.sort(key=lambda x: -x[1])
+        if word_scores[0][1] == 0:
             break
         else:
-            if char.isalpha():
-                word += char
-            else:
-                if word != '':
-                    words.append(word)
-                word = ''
-    return words
+            word_priority.append(word_scores[0][0])
+            for char in word_scores[0][0]:
+                seen.add(char)
     
-def decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index, decrypt_key, encrypt_key, decryptionType=False):
+    return word_priority
+    
+def decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index, decrypt_key, encrypt_key):
 
     global solutionCount
     
@@ -150,14 +157,16 @@ def decrypt(wordsByLength, wordsByLetter, encrypted, decryption_index, decrypt_k
                     del encrypt_key[decrypted_char]
 
 def decrypt_caesar(wordsByLength, wordsByLetter, parsed_list, start_decrypt_key, start_encrypt_key):
-    for shift in range(26):
+    global solutionCount
+    for shift in range(1, 26):
         temp_decrypt_key, temp_encrypt_key = build_caesar(shift)
+        # print(f'temporary decrypt key for shift {shift}: {temp_decrypt_key}')
         decrypt(wordsByLength, wordsByLetter, parsed_list, 0, temp_decrypt_key, temp_encrypt_key)
         
 def build_caesar(shift):
     decrypt_key = {}
     encrypt_key = {}
-    for index, char in enumerate(string.ascii_lowercase):
+    for index, char in enumerate(string.ascii_uppercase):
         shifted_char = string.ascii_lowercase[(index + shift) % 26]
         decrypt_key[char] = shifted_char
         encrypt_key[shifted_char] = char
@@ -178,34 +187,69 @@ def showAnswer(solution):
                 else:
                     decrypted += char
         print(f'{time.time() - startTime:.2f}s: SOLUTION {solutionCount}: {decrypted.strip()}')
-        
-with open('words_dictionary.json') as f:
-    words = json.load(f)
+        if DEBUG > 2:
+            for index, word in enumerate(parse(decrypted)):
+                print(f'{index}: {word}')
 
-wordsByLength, wordsByLetter = setup(words)
-#print('words by length:\n' + str(wordsByLength))
-#print('\nwords by letter:\n' + str(wordsByLetter))
+def main():
+    global startTime
+    global solutionCount
+    global INPUT_FILE
 
-startTime = time.time()
+    CAESAR_MODE = '-caesar' in sys.argv
+    if CAESAR_MODE:
+        sys.argv.remove('-caesar')
 
-with open(INPUT_FILE) as text:
-    parsed_list = parse(text)
-    start_decrypt_key = {}
-    start_encrypt_key = {}
-    if len(sys.argv) > 3:
-        INDEX, WORD = sys.argv[2:4]
-        INDEX = int(INDEX)
-        known_encrypted_word = parsed_list[INDEX]
-        for index, char in enumerate(WORD):
-            start_decrypt_key[known_encrypted_word[index]] = char
-            start_encrypt_key[char] = known_encrypted_word[index]
-    print(f'start decrypt: {start_decrypt_key}, start encrypt: {start_encrypt_key}')
+    if len(sys.argv) > 1:
+        INPUT_FILE = sys.argv[1]
+    else:
+        INPUT_FILE = 'encrypted.txt'
 
-    parsed_list.sort(key=lambda x: -len(x))
+    # how many solutions we've found so far
+    solutionCount = 0
 
-    print(f'parsed: {len(parsed_list)} words\n{parsed_list}')
+    print(f'Trying to decrypt file "{INPUT_FILE}"')
     if CAESAR_MODE:
         print('CAESAR MODE')
-        decrypt_caesar(wordsByLength, wordsByLetter, parsed_list, start_decrypt_key, start_encrypt_key)
-    else:
-        decrypt(wordsByLength, wordsByLetter, parsed_list, 0, start_decrypt_key, start_encrypt_key)
+
+    with open('words_dictionary.json') as f:
+        words = json.load(f)
+
+    wordsByLength, wordsByLetter = setup(words)
+    #print('words by length:\n' + str(wordsByLength))
+    #print('\nwords by letter:\n' + str(wordsByLetter))
+
+    startTime = time.time()
+
+    with open(INPUT_FILE) as text:
+        parsed_list = parse(text.read())
+        start_decrypt_key = {}
+        start_encrypt_key = {}
+        if len(sys.argv) > 3:
+            INDEX, WORD = sys.argv[2:4]
+            INDEX = int(INDEX)
+            known_encrypted_word = parsed_list[INDEX]
+            for index, char in enumerate(WORD):
+                start_decrypt_key[known_encrypted_word[index]] = char
+                start_encrypt_key[char] = known_encrypted_word[index]
+        print(f'start decrypt: {start_decrypt_key}, start encrypt: {start_encrypt_key}')
+
+        print(f'parsed: {len(parsed_list)}')
+        for index, word in enumerate(parsed_list):
+            print(f'{index}: {word}')
+
+        parsed_list.sort(key=lambda x: -len(x))
+        print(f'sorted: {len(parsed_list)} words\n{parsed_list}')
+
+        optimized_list = optimize(parsed_list)
+        print(f'optimized: {len(optimized_list)} (removed {len(parsed_list) - len(optimized_list)})  words\n{optimized_list}')
+
+
+        if CAESAR_MODE:
+            decrypt_caesar(wordsByLength, wordsByLetter, optimized_list, start_decrypt_key, start_encrypt_key)
+
+        else:
+            decrypt(wordsByLength, wordsByLetter, optimized_list, 0, start_decrypt_key, start_encrypt_key)
+
+if __name__ == '__main__':
+    main()
